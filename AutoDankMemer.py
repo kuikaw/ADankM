@@ -23,7 +23,11 @@ def get_guild_id(channel_id):
 
 def get_my_information(token):
     try:
-        data = requests.get(f"https://discord.com/api/v9/users/@me", headers={"Authorization": token}).json()
+        data = requests.get(
+            "https://discord.com/api/v9/users/@me",
+            headers={"Authorization": token},
+        ).json()
+
         return data["id"], data["username"], data["discriminator"]
     except KeyError:
         return None
@@ -50,7 +54,7 @@ if MY_ID is None or NAME is None:
     exit()
 
 b64 = lambda s: base64.b64decode(s).decode('utf-8')
-if not "trivia.json" in os.listdir():
+if "trivia.json" not in os.listdir():
     TRIVIA_DATA = None
     log("File trivia.json was not found, random trivia answers will be selected.", LogType.INFO)
 else:
@@ -59,7 +63,7 @@ else:
         trivia = json.load(f)
     for category, question_list in trivia.items():
         cat_name = b64(category)
-        if not cat_name in TRIVIA_DATA:
+        if cat_name not in TRIVIA_DATA:
             TRIVIA_DATA[cat_name] = {}
         for question in question_list:
             TRIVIA_DATA[cat_name][b64(question["question"])] = b64(question["answer"])
@@ -86,10 +90,7 @@ def get_label_mapping_and_list(data):
 
 def get_ideal_search_id(data):
     labels, label_list = get_label_mapping_and_list(data)
-    to_delete = []
-    for label in labels.keys():
-        if not label in SEARCH_PRIORITY:
-            to_delete.append(label)
+    to_delete = [label for label in labels.keys() if label not in SEARCH_PRIORITY]
     for label in to_delete:
         del labels[label]
         label_list.remove(label)
@@ -103,13 +104,10 @@ def get_ideal_search_id(data):
 
 def get_correct_trivia_id(data, question, category):
     labels, label_list = get_label_mapping_and_list(data)
-    if not (category in TRIVIA_DATA and question in TRIVIA_DATA[category]):
+    if category not in TRIVIA_DATA or question not in TRIVIA_DATA[category]:
         return None
     correct_answer = TRIVIA_DATA[category][question]
-    if correct_answer in label_list:
-        return labels[correct_answer]
-    else:
-        return None
+    return labels[correct_answer] if correct_answer in label_list else None
     
 class BotMessage:
     def __init__(self, message):
@@ -137,7 +135,7 @@ class BotMessage:
         try:
             if str(self.message.reference.message_id) in [str(i) for i in array]:
                 self.load_message_data = True
-                if not command is None:
+                if command is not None:
                     self.command_name = command
                 self.loaded_data_dict = self.get_message_data()
                 self.dumped_data = json.dumps(self.loaded_data_dict)
@@ -145,7 +143,7 @@ class BotMessage:
             return False
     
     def press_random_button(self, button_count):
-        if not "components" in self.loaded_data_dict: return
+        if "components" not in self.loaded_data_dict: return
         custom_id = self.loaded_data_dict["components"][0]["components"][random.randint(0, button_count - 1)]["custom_id"]
         return self.press_button(custom_id)
     
@@ -158,7 +156,7 @@ class BotMessage:
         return requests.get(url, headers={"Authorization": f"Bot {BOT_TOKEN}"}).json()
     
     def press_button(self, custom_id):
-        if custom_id == None: return 204
+        if custom_id is None: return 204
         payload = {
             "type": 3,
             "nonce": str((int(time.time()) * 1000 - 1420070400000) * 4194304),
@@ -173,7 +171,11 @@ class BotMessage:
                 "custom_id": custom_id
             }
         }
-        return requests.post(f"https://discord.com/api/v9/interactions", headers={"Authorization": USER_TOKEN}, json=payload).status_code
+        return requests.post(
+            "https://discord.com/api/v9/interactions",
+            headers={"Authorization": USER_TOKEN},
+            json=payload,
+        ).status_code
     
     def highlow_get_hint_number(self):
         return int(self.loaded_data_dict["embeds"][0]["description"].split("**")[1])
@@ -185,13 +187,13 @@ class BotMessage:
         return self.loaded_data_dict["embeds"][0]["fields"][1]["value"].replace("`", "")
     
     def add_and_log(self, command_name, value):
-        if not command_name in earnings:
+        if command_name not in earnings:
             earnings[command_name] = 0
         earnings[command_name] += value
         log(f"{command_name.ljust(9)} -> {str(value).ljust(6)} ({sum(earnings.values()) - sum(costs.values())})", LogType.EARN)
     
     def remove_cost(self, command_name, cost):
-        if not command_name in costs:
+        if command_name not in costs:
             costs[command_name] = 0
         costs[command_name] += cost
 
@@ -215,17 +217,17 @@ client = discord.Client()
 async def command_start_loop():
     if not running: return
     for command, cooldown in COMMANDS.items():
-        if not command in active_commands:
+        if command not in active_commands:
             continue
-        if not command in use_counts.keys():
+        if command not in use_counts.keys():
             use_counts[command] = 0
-        if not command in next_use.keys():
+        if command not in next_use.keys():
             next_use[command] = time.time() + random.randint(0, 15)
         if time.time() > next_use[command]:
             next_use[command] = time.time() + cooldown + 3
             use_counts[command] += 1
             res = post_message(f"pls {command}")
-            if not res == False:
+            if res != False:
                 message_ids[command].append(res)
             return
 
@@ -606,13 +608,13 @@ async def on_message(message: discord.Message):
 
 @client.event
 async def on_message_edit(_, message: discord.Message):
-    if not message.author.id == DANK_MEMER_ID: return
+    if message.author.id != DANK_MEMER_ID: return
 
     try:
         bot_message = BotMessage(message)
 
         if bot_message.command_name == "hl":
-            if not "You lost!" in bot_message.dumped_data:
+            if "You lost!" not in bot_message.dumped_data:
                 value = int(bot_message.dumped_data.split("**!")[0].split(" ")[-1].replace(",", ""))
                 bot_message.add_and_log("High/Low", value)
 
@@ -623,15 +625,15 @@ async def on_message_edit(_, message: discord.Message):
                     bot_message.add_and_log("Postmemes", value)
             if "Bank Note" in bot_message.dumped_data:
                 post_message("pls use banknote 1")
-        
+
         elif bot_message.command_name == "crime":
             for message_chunk in CRIME_DEATH_CHUNKS:
                 if message_chunk in bot_message.loaded_data_dict:
                     log(f"DIED COMMITTING CRIME #{use_counts['crime']}", LogType.DIED)
                     if not buy_lifesavers:
-                        log(f"SKIPPED LIFESAVER PURCHASE", LogType.BUY)
+                        log("SKIPPED LIFESAVER PURCHASE", LogType.BUY)
                     else:
-                        log(f"PURCHASED LIFESAVER", LogType.BUY)
+                        log("PURCHASED LIFESAVER", LogType.BUY)
                         post_message("pls buy livesaver")
                         bot_message.remove_cost("Crime", 50000)
                     break
@@ -646,17 +648,17 @@ async def on_message_edit(_, message: discord.Message):
                 bot_message.add_and_log("Crime", value)
             if "Bank Note" in bot_message.dumped_data:
                 post_message("pls use banknote 1")
-        
+
         elif bot_message.command_name == "search":
-            if not "Guess you didn't" in message.content:
+            if "Guess you didn't" not in message.content:
                 if "description" in bot_message.loaded_data_dict["embeds"][0]:
                     for message_chunk in SEARCH_DEATH_CHUNKS:
                         if message_chunk in bot_message.loaded_data_dict["embeds"][0]["description"]:
                             log(f"DIED DOING SEARCH #{use_counts['search']}", LogType.DIED)
                             if not buy_lifesavers:
-                                log(f"SKIPPED LIFESAVER PURCHASE", LogType.BUY)
+                                log("SKIPPED LIFESAVER PURCHASE", LogType.BUY)
                             else:
-                                log(f"PURCHASED LIFESAVER", LogType.BUY)
+                                log("PURCHASED LIFESAVER", LogType.BUY)
                                 post_message("pls buy livesaver")
                                 bot_message.remove_cost("Search", 50000)
                             break
@@ -669,12 +671,12 @@ async def on_message_edit(_, message: discord.Message):
                             break
                     value = int(buffer.replace(",", ""))
                     bot_message.add_and_log("Search", value)
-        
+
         elif bot_message.command_name == "trivia":
             if "You got that answer correct" in bot_message.dumped_data:
                 value = int(bot_message.dumped_data.split("you also got ")[1].split(" coins")[0].replace(",", ""))
                 bot_message.add_and_log("Trivia", value)
-        
+
         elif bot_message.command_name == "work":
             if "You were given" in bot_message.dumped_data:
                 value = int(bot_message.dumped_data.split("You were given ")[1].split(" for")[0].replace(",", ""))
@@ -688,10 +690,10 @@ log(f"Total Income:   ⏣ {sum(earnings.values())}", LogType.SUMMARY)
 log(f"Total Expenses: ⏣ {sum(costs.values())}", LogType.SUMMARY)
 log(f"Total Profit:   ⏣ {sum(earnings.values()) - sum(costs.values())}", LogType.SUMMARY)
 if len(earnings) > 0:
-    log(f"Earning Breakdown:", LogType.SUMMARY)
+    log("Earning Breakdown:", LogType.SUMMARY)
 for key, value in earnings.items():
     log(f" > {key}: ⏣ {value}", LogType.SUMMARY)
 if len(costs) > 0:
-    log(f"Cost Breakdown:", LogType.SUMMARY)
+    log("Cost Breakdown:", LogType.SUMMARY)
 for key, value in costs.items():
     log(f" > {key}: ⏣ {value}", LogType.SUMMARY)
